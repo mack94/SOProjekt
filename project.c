@@ -1,5 +1,7 @@
 #include "header.h" 
 
+/*********************************************************************/
+
 int stopowa = 0; 
 
 pthread_t thread1; 
@@ -16,6 +18,20 @@ struct tory *stanTorow;
 struct struktura_oczekujacych *oczekujace; 
 int tory_w_pamieci_wspolnej;
 
+/*********************************************************************/
+void utworzKolejke();
+void enqueue(pid_t nowyPociagID, int numerToru);
+void dequeue(int numerToru);
+int frontElement(int numerToru);
+void inicjalizujTory(int n);
+void generujPociag();
+void obsluz_sygnal(int signo, siginfo_t *siginfo, void *context);
+void pusc_pociag();
+void zarzadzaj();
+void posprzataj();
+void wylacz();
+/*********************************************************************/
+
 void utworzKolejke() {
   
   stanTorow = malloc(sizeof(struct tory));
@@ -31,6 +47,7 @@ void utworzKolejke() {
   
 }
 
+/*********************************************************************/
 void enqueue(pid_t nowyPociagID, int numerToru) {
   
   if (stanTorow->rear[numerToru] == NULL) {
@@ -55,7 +72,7 @@ void enqueue(pid_t nowyPociagID, int numerToru) {
   stanTorow->ilePociagowNaTorze[numerToru]++; 
   
 }
-
+/*********************************************************************/
 void dequeue(int numerToru) {
   
   temp = stanTorow->front[numerToru];
@@ -72,13 +89,15 @@ void dequeue(int numerToru) {
       free(stanTorow->front[numerToru]);
       stanTorow->front[numerToru] = temp;
       oczekujace->front[numerToru] = temp->pociagID; 
+      printf("=============1 : %d  <- na torze : %d \n ", temp->pociagID, numerToru);
       
     } else {
       
       free(stanTorow->front[numerToru]);
       stanTorow->front[numerToru] = NULL; 
       stanTorow->rear[numerToru] = NULL; 
-      oczekujace->front[numerToru] = 0; 
+      oczekujace->front[numerToru] = frontElement(numerToru); 
+      printf("=============2 : %d <- na torze : %d \n", frontElement(numerToru), numerToru);
       
     }
     
@@ -87,7 +106,7 @@ void dequeue(int numerToru) {
   stanTorow->ilePociagowNaTorze[numerToru]--; 
   
 }
-
+/*********************************************************************/
 int frontElement(int numerToru) {
   
   if ((stanTorow->front[numerToru] != NULL) && (stanTorow->rear[numerToru] != NULL))
@@ -96,7 +115,7 @@ int frontElement(int numerToru) {
     return 0; 
   
 }
-
+/*********************************************************************/
 void inicjalizujTory(int n) { // n - liczba torow do zainicjalizowania 
   // tory są reprezentowane tylko poprzez semafory i ich stan. 
   
@@ -113,7 +132,8 @@ void inicjalizujTory(int n) { // n - liczba torow do zainicjalizowania
     zbior_semaforow[i] = sem_open(name, O_CREAT, 0644, 0); 
     
     if (zbior_semaforow[i] == SEM_FAILED) {
-      printf("************Blad podczas inicjalizowania semaforow - project.c**********\n"); 
+      printf("Wystąpił błąd podczas inicjalizowania semaforow - project.c \n"); 
+      exit (-1); 
     }
     
     printf("Zainicjalizowano tor: %d\n", i); 
@@ -121,14 +141,14 @@ void inicjalizujTory(int n) { // n - liczba torow do zainicjalizowania
   }
   
 }
-
+/*********************************************************************/
 void generujPociag() {
   
   srand(time(NULL)); 
   
   while(true) {
     
-    sleep((int) rand() % 2 + 1); 
+    sleep((int) rand() % 5 + 1); 
     //TODO: to jednak tutaj musze losowac tor i priorytet 
     srand(time(NULL)); 
     pid_t pociagID; 
@@ -168,11 +188,9 @@ void generujPociag() {
   }
   
 }
-
+/*********************************************************************/
 void obsluz_sygnal(int signo, siginfo_t *siginfo, void *context) {
-  
-  printf("Dostalem sygnal SIGUSR1\n"); 
-  
+
   stopowa = 0; 
   
 //  pid_t pochodzenie; 
@@ -183,7 +201,7 @@ void obsluz_sygnal(int signo, siginfo_t *siginfo, void *context) {
   return; 
   
 }
-
+/*********************************************************************/
 void pusc_pociag() {
   
   int i;
@@ -199,28 +217,29 @@ void pusc_pociag() {
   wybranyTorDoPuszczenia = i; 
   
   if (wybranyTorDoPuszczenia < 10 && wybranyTorDoPuszczenia >= 0) {
-    
-    printf("Wybrany: %d\n", wybranyTorDoPuszczenia);     
+       
     sem_post(zbior_semaforow[wybranyTorDoPuszczenia]); 
     stopowa = 1;
     
-    dequeue(wybranyTorDoPuszczenia); 
   }
   
   while(stopowa == 1) {
   
-    
+      usleep(500);
+
   }
+  
+  dequeue(wybranyTorDoPuszczenia); 
   
   return; 
   
 }
-
+/*********************************************************************/
 void zarzadzaj() {
 
-      // obsluga sygnalu 
+  // obsluga sygnalu 
   sa.sa_handler = &obsluz_sygnal; 
-    //sa.sa_flags = SA_SIGINFO;
+  //sa.sa_flags = SA_SIGINFO;
   sigfillset(&sa.sa_mask); 
     
   sigaction(SIGUSR1, &sa, NULL);
@@ -229,11 +248,12 @@ void zarzadzaj() {
     
     pusc_pociag(); 
     
-   sleep(1); 
+    sleep(1); 
+    
   }
 
 }
-
+/*********************************************************************/
 void posprzataj() {
   
   int i;
@@ -251,11 +271,11 @@ void posprzataj() {
   shm_unlink("/pamiec"); 
   
 }
-
+/*********************************************************************/
 void wylacz() {
   exit(0); 
 }
-
+/*********************************************************************/
 int main(int argc, char* argv[]) {
  
   atexit(posprzataj); 
@@ -263,10 +283,22 @@ int main(int argc, char* argv[]) {
   
   // tworzymy obiekt pamięci wspolnej 
   tory_w_pamieci_wspolnej = shm_open("/pamiec", O_RDWR | O_CREAT, 0644); 
+  
+  if (tory_w_pamieci_wspolnej < 0) {
+    printf("Wystąpił błąd podczas tworzenia pamięci wspólnej! \n"); 
+    exit (-1); 
+  }
+  
   ftruncate(tory_w_pamieci_wspolnej, sizeof(struct tory)); 
   
   //odwzorowujemy w pamieci procesu 
-  oczekujace = (struct tory *) mmap(NULL, sizeof(struct struktura_oczekujacych), PROT_READ | PROT_WRITE, MAP_SHARED, tory_w_pamieci_wspolnej, 0);
+  oczekujace = mmap(NULL, sizeof(struct struktura_oczekujacych), PROT_READ | PROT_WRITE, MAP_SHARED, tory_w_pamieci_wspolnej, 0);
+
+  if (oczekujace == MAP_FAILED) {
+    printf("Wystąpil błąd podczas mapowania pamięci! \n"); 
+    exit(-1); 
+  }
+  
   
   utworzKolejke();
   
@@ -274,8 +306,8 @@ int main(int argc, char* argv[]) {
   
   sleep(1);
   //TODO: obsluga bledow
-  pthread_create(&thread1, NULL, zarzadzaj, NULL);
-  pthread_create(&thread2, NULL, generujPociag, NULL); 
+  pthread_create(&thread1, NULL, &zarzadzaj, NULL);
+  pthread_create(&thread2, NULL, &generujPociag, NULL); 
   
   pthread_join(thread1, NULL); 
   pthread_join(thread2, NULL); 

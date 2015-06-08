@@ -29,7 +29,6 @@
 #define TOWAR_V 15 // max predkosc towarowego w tunelu
 #define ZWYKLY_V 50 // max predkosc zwyklego w tunelu 
 
-
 struct node { // kazdy tor potrzebuje swojej kolejki... 
   pid_t pociagID; 
   struct node *ptr;
