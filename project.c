@@ -20,13 +20,14 @@ int tory_w_pamieci_wspolnej;
 
 /*********************************************************************/
 void utworzKolejke();
-void enqueue(pid_t nowyPociagID, int numerToru);
+void enqueue(pid_t nowyPociagID, int numerToru, int priorytet);
 void dequeue(int numerToru);
 int frontElement(int numerToru);
 void inicjalizujTory(int n);
 void generujPociag();
 void obsluz_sygnal(int signo, siginfo_t *siginfo, void *context);
 void pusc_pociag();
+int ktory_pociag_wpuscic();
 void zarzadzaj();
 void posprzataj();
 void wylacz();
@@ -40,6 +41,8 @@ void utworzKolejke() {
   for(i = 0; i < LICZBA_TOROW; i++) {
     
     oczekujace->front[i] = 0;
+    oczekujace->czas[i] = time(NULL);
+    oczekujace->priorytet[i] = 0;
     stanTorow->front[i] = stanTorow->rear[i] = NULL; 
     stanTorow->ilePociagowNaTorze[i] = 0; 
     
@@ -48,21 +51,31 @@ void utworzKolejke() {
 }
 
 /*********************************************************************/
-void enqueue(pid_t nowyPociagID, int numerToru) {
+void enqueue(pid_t nowyPociagID, int numerToru, int priorytet) {
+  
+  time_t aktualny_czas;
+  
+  aktualny_czas = time(NULL); 
   
   if (stanTorow->rear[numerToru] == NULL) {
     
     stanTorow->rear[numerToru] = (struct node*) malloc(1*sizeof(struct node)); 
     stanTorow->rear[numerToru]->ptr = NULL; 
     stanTorow->rear[numerToru]->pociagID = nowyPociagID; 
+    stanTorow->rear[numerToru]->priorytet = priorytet; 
+    stanTorow->rear[numerToru]->czas = aktualny_czas; 
     stanTorow->front[numerToru] = stanTorow->rear[numerToru];
     oczekujace->front[numerToru] = nowyPociagID; 
+    oczekujace->czas[numerToru] = aktualny_czas;
+    oczekujace->priorytet[numerToru] = priorytet; 
     
   } else {
     
     temp = (struct node*) malloc(1*sizeof(struct node)); 
     stanTorow->rear[numerToru]->ptr = temp; 
     temp->pociagID = nowyPociagID;
+    temp->priorytet = priorytet; 
+    temp->czas = aktualny_czas;     
     temp->ptr = NULL; 
     
     stanTorow->rear[numerToru] = temp;
@@ -89,7 +102,9 @@ void dequeue(int numerToru) {
       free(stanTorow->front[numerToru]);
       stanTorow->front[numerToru] = temp;
       oczekujace->front[numerToru] = temp->pociagID; 
-      printf("=============1 : %d  <- na torze : %d \n ", temp->pociagID, numerToru);
+      oczekujace->czas[numerToru] = temp->czas;
+      oczekujace->priorytet[numerToru] = temp->priorytet; 
+      //printf("=============1 : %d  <- na torze : %d \n ", temp->pociagID, numerToru);
       
     } else {
       
@@ -97,7 +112,9 @@ void dequeue(int numerToru) {
       stanTorow->front[numerToru] = NULL; 
       stanTorow->rear[numerToru] = NULL; 
       oczekujace->front[numerToru] = frontElement(numerToru); 
-      printf("=============2 : %d <- na torze : %d \n", frontElement(numerToru), numerToru);
+      oczekujace->czas[numerToru] = time(NULL);
+      oczekujace->priorytet[numerToru] = 0;       
+      //printf("=============2 : %d <- na torze : %d \n", frontElement(numerToru), numerToru);
       
     }
     
@@ -148,7 +165,7 @@ void generujPociag() {
   
   while(true) {
     
-    sleep((int) rand() % 5 + 1); 
+    sleep((int) rand() % 8 + 1); 
     //TODO: to jednak tutaj musze losowac tor i priorytet 
     srand(time(NULL)); 
     pid_t pociagID; 
@@ -177,7 +194,7 @@ void generujPociag() {
     
     if (pociagID != 0) { 	// jestesmy w procesie macierzystym
       
-      enqueue(pociagID, tor); //TODO: na okreslony tor go ladowac a nie 5
+      enqueue(pociagID, tor, priorytet); //TODO: na okreslony tor go ladowac a nie 5
       
       
     } else {		// uruchomiony proces potomny
@@ -204,34 +221,70 @@ void obsluz_sygnal(int signo, siginfo_t *siginfo, void *context) {
 /*********************************************************************/
 void pusc_pociag() {
   
-  int i;
   int wybranyTorDoPuszczenia = -1; 
   
-  for(i = 0; i < LICZBA_TOROW; i++) {
-    
-    if (oczekujace->front[i] != 0)
-      break; 
-    
-  }
+  wybranyTorDoPuszczenia = ktory_pociag_wpuscic(); 
   
-  wybranyTorDoPuszczenia = i; 
+  //printf("WYBRANIEC: %d\n", wybranyTorDoPuszczenia); 
   
   if (wybranyTorDoPuszczenia < 10 && wybranyTorDoPuszczenia >= 0) {
        
     sem_post(zbior_semaforow[wybranyTorDoPuszczenia]); 
     stopowa = 1;
-    
+    //dequeue(wybranyTorDoPuszczenia); 
   }
   
   while(stopowa == 1) {
   
-      usleep(500);
+      usleep(500000);
 
   }
   
-  dequeue(wybranyTorDoPuszczenia); 
+  if (wybranyTorDoPuszczenia < 10 && wybranyTorDoPuszczenia >= 0)
+    dequeue(wybranyTorDoPuszczenia); 
+  
+  
   
   return; 
+  
+}
+/*********************************************************************/
+int ktory_pociag_wpuscic() {
+  
+  int i;
+  double P = 0; 
+  double P_temp = 0; 
+  int priorytet;
+  int numerToruZKtoregoPuszczamy = -1; 
+  time_t aktualny_czas;
+  double czas_oczekiwania; 
+  
+  aktualny_czas = time(NULL); 
+  
+  // P = czas_oczekiwania / priorytet -> max
+  // czym wieksze jest P, tym bardziej powinnismy puscic pociag.  
+  
+  for(i = 0; i < LICZBA_TOROW; i++) {
+    
+    czas_oczekiwania = difftime(aktualny_czas, oczekujace->czas[i]); 
+    priorytet = oczekujace->priorytet[i]; 
+    
+    if (priorytet == 0)
+      continue; 
+    
+    P_temp = czas_oczekiwania / priorytet * 1.0;
+    //printf("P_temp: %f\n", P_temp);
+    
+    if (P_temp > P) {
+      
+      P = P_temp; 
+      numerToruZKtoregoPuszczamy = i; 
+      
+    }
+    
+  }
+  
+  return numerToruZKtoregoPuszczamy;
   
 }
 /*********************************************************************/

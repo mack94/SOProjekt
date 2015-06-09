@@ -33,12 +33,19 @@ void zamelduj_opuszczenie_tunelu() {
 
 void jedz() {
   
+  int czas_przejazdu; 
+  
+  if (priorytet == 1)
+    czas_przejazdu = (int) DLUGOSC_TUNELU / EXPRESS_V; 
+  if (priorytet == 2)
+    czas_przejazdu = (int) DLUGOSC_TUNELU / TOWAR_V; 
+  if (priorytet == 3)
+    czas_przejazdu = (int) DLUGOSC_TUNELU / ZWYKLY_V; 
+  
   printf("\x1b[31m *Pociag TLK%d jedzie przez tunel - 1 \x1b[0m\n", getpid()); 
-  sleep(1); 
-  printf("\x1b[31m **Pociag TLK%d jedzie przez tunel - 2 \x1b[0m\n", getpid()); 
-  sleep(1); 
-  printf("\x1b[31m ***Pociag TLK%d jedzie przez tunel - 3 \x1b[0m\n", getpid()); 
-  sleep(1); 
+  // t = s/v 
+  //usleep(1000000) - 1sec
+  usleep(1000000/5*2*czas_przejazdu); 
   printf("\x1b[32m ***->Wyjechalem z tunelu - meldunek od TLK%d \x1b[0m\n", getpid()); 
   
   zamelduj_opuszczenie_tunelu(); //test 

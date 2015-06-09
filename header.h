@@ -20,18 +20,23 @@
 //#include <pthread.h>
 
 #define LICZBA_TOROW 10 
-#define EXPRESS_PRIOR 0
-#define TOWAROWY_PRIOR 1
-#define ZWYKLY_PRIOR 2 
+#define EXPRESS_PRIOR 1
+#define TOWAROWY_PRIOR 2
+#define ZWYKLY_PRIOR 3 
 #define NATEZENIE 10 
 #define DLUGOSC_TUNELU 100 
-#define EXPRESS_V 60 // max predkosc ekspresu w tunelu 
-#define TOWAR_V 15 // max predkosc towarowego w tunelu
-#define ZWYKLY_V 50 // max predkosc zwyklego w tunelu 
+#define EXPRESS_V 20 // max predkosc ekspresu w tunelu 
+#define TOWAR_V 5 // max predkosc towarowego w tunelu
+#define ZWYKLY_V 10 // max predkosc zwyklego w tunelu 
+
 
 struct node { // kazdy tor potrzebuje swojej kolejki... 
+  
   pid_t pociagID; 
+  int priorytet; 
+  time_t czas; 
   struct node *ptr;
+  
 }; 
 
 struct tory {
@@ -44,6 +49,8 @@ struct tory {
 
 struct struktura_oczekujacych {
 
+  int priorytet[LICZBA_TOROW]; 
+  time_t czas[LICZBA_TOROW]; 
   pid_t front[LICZBA_TOROW];
   sem_t semaphore[LICZBA_TOROW]; 
   
