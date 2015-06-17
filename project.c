@@ -2,12 +2,11 @@
 
 /*********************************************************************/
 
-int stopowa = 0; 
-
 pthread_t thread1; 
 pthread_t thread2; 
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER; 
 
-sem_t *semafor; 
+//sem_t *semafor;
 sem_t *zbior_semaforow[LICZBA_TOROW]; 
 
 struct sigaction sa; 
@@ -165,7 +164,7 @@ void generujPociag() {
   
   while(true) {
     
-    sleep((int) rand() % 8 + 1); 
+    sleep((int) rand() % GEN_TIME + 1); 
     //TODO: to jednak tutaj musze losowac tor i priorytet 
     srand(time(NULL)); 
     pid_t pociagID; 
@@ -208,12 +207,8 @@ void generujPociag() {
 /*********************************************************************/
 void obsluz_sygnal(int signo, siginfo_t *siginfo, void *context) {
 
-  stopowa = 0; 
-  
-//  pid_t pochodzenie; 
-//  pochodzenie = siginfo->si_pid; 
-  
-//  kill(SIGKILL, pochodzenie); 
+  //sem_post(semafor);
+  pthread_mutex_unlock(&mutex);
   
   return; 
   
@@ -228,22 +223,11 @@ void pusc_pociag() {
   //printf("WYBRANIEC: %d\n", wybranyTorDoPuszczenia); 
   
   if (wybranyTorDoPuszczenia < 10 && wybranyTorDoPuszczenia >= 0) {
-       
     sem_post(zbior_semaforow[wybranyTorDoPuszczenia]); 
-    stopowa = 1;
-    //dequeue(wybranyTorDoPuszczenia); 
-  }
-  
-  while(stopowa == 1) {
-  
-      usleep(500000);
-
-  }
-  
-  if (wybranyTorDoPuszczenia < 10 && wybranyTorDoPuszczenia >= 0)
+    //sem_wait(semafor); 
+    pthread_mutex_lock(&mutex); 
     dequeue(wybranyTorDoPuszczenia); 
-  
-  
+  }
   
   return; 
   
@@ -300,7 +284,6 @@ void zarzadzaj() {
   while(true) {
     
     pusc_pociag(); 
-    
     sleep(1); 
     
   }
@@ -357,10 +340,14 @@ int main(int argc, char* argv[]) {
   
   inicjalizujTory(LICZBA_TOROW); 
   
+  // zainicjalizuj mutex, odpowiedzialny za oczekiwanie gdy pociąg jest w tunelu
+  //semafor = sem_open("/syncsem0", O_CREAT, 0644, 1); // to mial byc semafor 'binarny'
+  pthread_mutex_lock(&mutex); 
+  
   sleep(1);
   //TODO: obsluga bledow
-  pthread_create(&thread1, NULL, &zarzadzaj, NULL);
-  pthread_create(&thread2, NULL, &generujPociag, NULL); 
+  pthread_create(&thread1, NULL, (void *) &zarzadzaj, NULL);
+  pthread_create(&thread2, NULL, (void *)&generujPociag, NULL); 
   
   pthread_join(thread1, NULL); 
   pthread_join(thread2, NULL); 

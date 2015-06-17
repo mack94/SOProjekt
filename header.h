@@ -18,6 +18,7 @@
 #include <sys/mman.h> // posixowa pamiec wspolna 
 
 //#include <pthread.h>
+#include <pthread.h>
 
 #define LICZBA_TOROW 10 
 #define EXPRESS_PRIOR 1
@@ -28,7 +29,7 @@
 #define EXPRESS_V 20 // max predkosc ekspresu w tunelu 
 #define TOWAR_V 5 // max predkosc towarowego w tunelu
 #define ZWYKLY_V 10 // max predkosc zwyklego w tunelu 
-
+#define GEN_TIME 8
 
 struct node { // kazdy tor potrzebuje swojej kolejki... 
   
