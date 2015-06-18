@@ -1,0 +1,60 @@
+-- Skrócony opis projektu -- 
+-- Skrócona dokumentacja  -- 
+
+Data: 18.06.2015  
+Autor: Maciej Makówka
+Temat projektu: Symulacja tunelu kolejowego 
+Przedmiot: Systemy Operacyjne 
+Prowadzący: dr. Marcin Kurdziel, dr. Jarosław Koźlak, dr. Krzysztof Cetnarowicz 
+
+Język: C 
+Ocena: 5.0 
+
+Założenia: 
+ * Dowolna liczba torów, które zbiegają w 1 przed tunelem,
+ * W tunelu mamy jeden tor dwu-kierunkowy - w tunelu, może przebywać max 1 pociąg w danym czasie,
+ * 3 rodzaje pociągów: express, normalny, towarowy. Różnią się one priorytetem, oraz szybkościa
+   z jaką pokonują trase wiodącą przez tunel, 
+ * n/2 torów do poruszania się w kierunku ->, wpp: <-- 
+
+Implementacja: 
+ 
+ * Projekt oparty na interfejsie POSIX, co zapewnia przenośność programu pomiędzy platformami,
+ * Proces główny podzielony na wątki: generator i dozorca,
+ * Każdy pociąg to proces,
+ * Ilość torów, długość tunelu, szybkość pociagów, można dowolnie zmieniać w header.h
+ * Pamięć dzielona(IPC) służąca do komunikacji pomiędzy procesem pociągu a procesem głównym (wymiana informacji)
+   dzięki niej, wiadomo też, kto oczekuje na wjazd,
+ * Semafory służą do synchronizacji pracy dozorcy (dozorca czeka na semaforze, aż pociąg opuści tunel), 
+   oraz wjazdów do tunelu (pociągi czekają na wjazd, do póki na torze, któregoś z nich nie zostanie podniesiony przez dozorce
+   semafor). Gdy pociąg wjezdża do tunelu, opuszcza semafor,
+ * Po opuszczeniu przez pociąg tunelu, ten wysyła sygnał SIGUSR1 do procesu głównego. Sygnał ten powoduje podniesienie 
+   semafora binarnego, na którym oczekuje dozorca,
+ * Dozorca, gdy jego semafor binarny zostaje podniesiony, zaczyna znów swoja pracę - szuka pociągu, który powinien
+   zostać wpuszczony (wedlug kryterium czas_oczekiwania/priorytet -> max) i próbuje go wpuścić,
+ * Semafory na torach są semaforami nazwanymi,
+ * Pociągi oczekują na torach w kolejce FIFO. Kolejka ta zawarta jest w strukturze. Napisałem również
+   funkcje służące do operowania na tej kolejce. (każdy nowy pociąg jest 'zaczepiany' za przedostatni
+   pociąg na tym samym torze).
+
+Rozważanie możliwości zakleszczenia: 
+  
+  Zakleszczenie czy też zagłodzenie nie są możliwe. Dozorca zawsze rozpatruje priorytet, jak również czas oczekiwania danego pociagu na wjazd, i wybiera optymalnie. 
+  Brak praktycznego (w programie) rozróżniania kierunku poruszania się również nie stanowi zagrożenia wpuszczania pociagów poruszających się tylko w 1 kierunku z powyższych
+  powodów (czas oczekiwania). 
+  Sam algorytm podnoszenia, opuszczania semaforów został przemyślany, i nie powoduje on żadnych błędów. 
+  Poprzez zastosowanie sigaction możemy być pewni niezawodności sygnałów, a więc również odblokowania dozorcy, gdy pociąg opuści tunel. 
+   
+Testowanie projektu: 
+Testy zostały przeprowadzone na następujących maszynach: 
+  - openSuse 13.1, linux, ASUS N46, Intel i7-4700HQ, NVidia GeForce 750M, 128 SSD, 8GB DDR3, 64 bit
+  - Fedora LXDE desktop RedHat, komputer w laboratorium 4.28 - maszyna wirtualna 
+  - Fedora RedHat, komputer w laboratorium 4.28
+  - Ubuntu 14.04.2 LTS - 64 bit
+  
+Rezultat wszystkich testów był pozytywny. 
+ 
+Więcej informacji, bądź też ich graficzne wyjaśnienie, zawartych zostało w prezentacji. 
+
+Od Autora: Projekt nie jest dokończony. 
+			Zawiera on braki, niedoróbki, pewne niezbyt piękne rozwiazania, czego jestem świadom, lecz brak czasu nie pozwolił na dopracowanie STK. 
